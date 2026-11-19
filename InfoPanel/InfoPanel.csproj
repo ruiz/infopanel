@@ -65,6 +65,18 @@
 		<RemoveDir Directories="$(OutputPath)\plugins" />
 	</Target>
 
+	<!-- The NuGet LHM package does not include the RTX 5090 per-pin 12VHPWR patch.
+	     Copy the patched 0.9.6 assembly over the stock one after build/publish. -->
+	<Target Name="CopyPatchedLibreHardwareMonitorLib" AfterTargets="Build;Publish">
+		<PropertyGroup>
+			<PatchedLibreHardwareMonitorLib>$(MSBuildProjectDirectory)\Lib\LibreHardwareMonitorLib.dll</PatchedLibreHardwareMonitorLib>
+		</PropertyGroup>
+		<Copy SourceFiles="$(PatchedLibreHardwareMonitorLib)" DestinationFolder="$(OutputPath)" Condition="Exists('$(PatchedLibreHardwareMonitorLib)')" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="$(PatchedLibreHardwareMonitorLib)" DestinationFolder="$(OutputPath)runtimes\win-x64\lib\net8.0" Condition="Exists('$(PatchedLibreHardwareMonitorLib)')" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="$(PatchedLibreHardwareMonitorLib)" DestinationFolder="$(PublishDir)" Condition="Exists('$(PatchedLibreHardwareMonitorLib)') and '$(PublishDir)' != ''" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="$(PatchedLibreHardwareMonitorLib)" DestinationFolder="$(PublishDir)runtimes\win-x64\lib\net8.0" Condition="Exists('$(PatchedLibreHardwareMonitorLib)') and '$(PublishDir)' != ''" SkipUnchangedFiles="true" />
+	</Target>
+
 
 	<Target Name="Sign" AfterTargets="Publish">
 		 <!--<Exec WorkingDirectory="$(PublishDir)" Command="&quot;C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe&quot; sign /a /t http://timestamp.sectigo.com /fd SHA256 /d &quot;InfoPanel&quot; /v InfoPanel.exe" />--> 

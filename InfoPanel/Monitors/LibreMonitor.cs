@@ -35,6 +35,8 @@ namespace InfoPanel.Monitors
         private static readonly ConcurrentDictionary<string, IHardware> HEADER_DICT = new();
         public static readonly ConcurrentDictionary<string, ISensor> SENSORHASH = new();
 
+        private const int PollIntervalMs = 500;
+
         private LibreMonitor() { }
 
         protected override async Task DoWorkAsync(CancellationToken token)
@@ -64,12 +66,28 @@ namespace InfoPanel.Monitors
                 stopwatch.Stop();
                 Logger.Information("LibreHardwareMonitor computer opened in {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
+                // InfoPanel only consumes each sensor's current value. LHM's one-day
+                // value history is redundant here and would grow faster at a 500 ms poll.
+                foreach (IHardware hardware in computer.Hardware)
+                {
+                    foreach (ISensor sensor in hardware.Sensors)
+                        sensor.ValuesTimeWindow = TimeSpan.Zero;
+
+                    foreach (IHardware subhardware in hardware.SubHardware)
+                    {
+                        foreach (ISensor sensor in subhardware.Sensors)
+                            sensor.ValuesTimeWindow = TimeSpan.Zero;
+                    }
+                }
+
                 try
                 {
                     UpdateVisitor updateVisitor = new();
+                    Stopwatch updateStopwatch = new();
 
                     while (!token.IsCancellationRequested)
                     {
+                        updateStopwatch.Restart();
                         computer.Accept(updateVisitor);
 
                         foreach (IHardware hardware in computer.Hardware)
@@ -95,8 +113,9 @@ namespace InfoPanel.Monitors
                             }
                         }
 
-                        await Task.Delay(2000, token);
-
+                        updateStopwatch.Stop();
+                        int delayMs = Math.Max(0, PollIntervalMs - (int)updateStopwatch.ElapsedMilliseconds);
+                        await Task.Delay(delayMs, token);
                     }
                 }
                 catch (TaskCanceledException)
